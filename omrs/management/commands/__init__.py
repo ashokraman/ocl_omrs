@@ -38,6 +38,7 @@ class OclOpenmrsHelper(object):
         {'owner_type':'org', 'owner_id':'WICC', 'omrs_id':'ICPC2', 'ocl_id':'ICPC2'},
         {'owner_type':'org', 'owner_id':'CIEL', 'omrs_id':'CIEL', 'ocl_id':'CIEL'},
         {'owner_type':'org', 'owner_id':'CCAM', 'omrs_id':'CCAM', 'ocl_id':'CCAM'},
+        {'owner_type':'org', 'owner_id':'OpenMRS', 'omrs_id':'org.openmrs.module.bacteriology', 'ocl_id':'org.openmrs.module.bacteriology'},
         {'owner_type':'org', 'owner_id':'OpenMRS', 'omrs_id':'org.openmrs.module.emrapi', 'ocl_id':'org.openmrs.module.emrapi'},
         {'owner_type':'org', 'owner_id':'IMO', 'omrs_id':'IMO ProblemIT', 'ocl_id':'IMO-ProblemIT'},
         {'owner_type':'org', 'owner_id':'IMO', 'omrs_id':'IMO ProcedureIT', 'ocl_id':'IMO-ProcedureIT'},
