@@ -44,11 +44,11 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         #'NAME': 'openmrs_20150824',
-        'NAME': 'openmrs_20150514',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': '3307',
+        'NAME': 'refapp',
+        'USER': 'admin',
+        'PASSWORD': 'admin',
+        'HOST': '192.168.33.17',
+        'PORT': '3306',
     }
 }
 
