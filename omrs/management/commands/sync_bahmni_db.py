@@ -18,7 +18,7 @@ BUGS:
 from optparse import make_option
 import json
 from django.core.management import BaseCommand, CommandError
-from omrs.models import Concept, ConceptReferenceMap, ConceptAnswer, ConceptSet,  ConceptReferenceSource
+from omrs.models import Concept, ConceptName, ConceptClass, ConceptReferenceMap, ConceptAnswer, ConceptSet,  ConceptReferenceSource
 from omrs.management.commands import OclOpenmrsHelper, UnrecognizedSourceException
 import requests
 
@@ -115,14 +115,15 @@ class Command(BaseCommand):
         # Validate the options
         self.validate_options()
 
-        # Validate all reference sources
-        if options['check_sources']:
-            self.check_sources()
+        # Load the concepts and mapping file into memory
+        # NOTE: This will only work if it can fit into memory -- explore streaming partial loads
 
-        # Determine if an export request
-        self.do_export = False
-        if self.do_mapping or self.do_concept or self.do_retire:
-            self.do_export = True
+        concepts = []
+        mappings = []
+        for line in open(self.concept_filename, 'r'):
+            concepts.append(json.loads(line))
+        for line in open(self.mapping_filename, 'r'):
+            mappings.append(json.loads(line))
 
         # Initialize counters
         self.cnt_total_concepts_processed = 0
@@ -137,8 +138,7 @@ class Command(BaseCommand):
         self.cnt_retired_concepts_exported = 0
 
         # Process concepts, mappings, or retirement script
-        if self.do_export:
-            self.export()
+        self.sync_db(concepts, mappings)
 
         # Display final counts
         if self.verbosity:
@@ -152,11 +152,9 @@ class Command(BaseCommand):
         # If concept/mapping export enabled, org/source IDs are required & must be valid mnemonics
         # TODO: Check that org and source IDs are valid mnemonics
         # TODO: Check that specified org and source IDs exist in OCL
-        if (self.do_mapping or self.do_concept) and (not self.org_id or not self.source_id):
+        if (not self.concept_filename or not self.mapping_filename):
             raise CommandError(
-                ("ERROR: 'org_id' and 'source_id' are required options for a concept or "
-                 "mapping export and must be valid identifiers for an organization and "
-                 "source in OCL"))
+                ("ERROR: concept and mapping json file names are required options "))
         if self.ocl_api_env not in self.OCL_API_URL:
             raise CommandError('Invalid "env" option provided: %s' % self.ocl_api_env)
         return True
@@ -223,57 +221,39 @@ class Command(BaseCommand):
 
     ## MAIN EXPORT LOOP
 
-    def export(self):
+    def sync_db(self, concepts, mappings):
         """
-        Main loop to export all concepts and/or their mappings.
+        Main loop to sync all concepts and/or their mappings.
 
-        Loop thru all concepts and mappings and generates JSON export in the OCL format.
+        Loop thru all concepts and mappings and generates needed entries.
         Note that the retired status of concepts is not handled here.
         """
-
-        # Set JSON indent value
-        output_indent = 4
-        if self.raw:
-            output_indent = None
 
         # Create the concept enumerator, applying 'concept_id'
         if self.concept_id is not None:
             # If 'concept_id' option set, fetch a single concept and convert to enumerator
-            concept = Concept.objects.get(concept_id=self.concept_id)
-            concept_enumerator = enumerate([concept])
+            concept_enumerator = enumerate([concepts])
         else:
             # Fetch all concepts
-            concept_results = Concept.objects.all()
-            concept_enumerator = enumerate(concept_results)
+            concept_enumerator = enumerate(concepts)
 
         # Iterate concept enumerator and process the export
         for num, concept in concept_enumerator:
             self.cnt_total_concepts_processed += 1
             export_data = ''
-            if self.do_concept:
-                export_data = self.export_concept(concept)
-                if export_data:
-                    print json.dumps(export_data, indent=output_indent)
-            if self.do_mapping:
-                export_data = self.export_all_mappings_for_concept(concept)
-                if export_data:
-                    for map_dict in export_data:
-                        print json.dumps(map_dict, indent=output_indent)
-            if self.do_retire:
-                export_data = self.export_concept_id_if_retired(concept)
-                if export_data:
-                    print json.dumps(export_data, indent=output_indent)
+            self.sync_concept_mapping(concept, mappings)
 
 
 
-    ## CONCEPT EXPORT
 
-    def export_concept(self, concept):
+    ## CONCEPT and MAPPINGS sync to DB
+
+    def sync_concept_mapping(self, concept, mappings):
         """
-        Export one concept as OCL-formatted dictionary.
+        Create one concept and its mappings.
 
-        :param concept: Concept to export from OpenMRS database.
-        :returns: OCL-formatted dictionary for the concept.
+        :param concept: Concept to write to OpenMRS database and list of mappings.
+        :returns: None.
 
         Note:
         - OMRS does not have locale_preferred or description_type metadata, so these are omitted
@@ -281,6 +261,23 @@ class Command(BaseCommand):
 
         # Iterate the concept export counter
         self.cnt_concepts_exported += 1
+
+        # Concept class, check if it is already created
+        concept_class = ConceptClass.objects.filter(name=concept['concept_class'])
+        if concept_class is None:
+            concept_class = ConceptClass(name=concept['concept_class'])
+            concept_class.save()
+
+        # Concept Name, check if it is already there
+        cnames = concept['names']
+        for cname in cnames:
+            concept_name = ConceptName.objects.filter(name=cname['name'], uuid=cname['external_id'])
+            if concept_name is None:
+                concept_name = ConceptName(name=cname['name'], uuid=cname['external_id'], concept_name_type=cname['name_type'], locale=cname['locale'])
+                concept_name.save()
+
+        # Core concept fields
+        # TODO: Confirm that all core concept fields are populated
 
         # Core concept fields
         # TODO: Confirm that all core concept fields are populated
