@@ -3,7 +3,7 @@ Command to using concept dictionary JSON files created from OpenMRS v1.11 concep
 
 Example usage:
 
-    manage.py sync_bahmni_db --org_id=CIEL --source_id=CIEL 
+    manage.py sync_bahmni_db --org_id=CIEL --source_id=CIEL --concept_filename=CONCEPT_FILENAME --mapping_filename=MAPPING_FILENAME
 
 Set verbosity to 0 (e.g. '-v0') to suppress the results summary output. Set verbosity to 2
 to see all debug output.
@@ -18,7 +18,7 @@ BUGS:
 from optparse import make_option
 import json
 from django.core.management import BaseCommand, CommandError
-from omrs.models import Concept, ConceptName, ConceptClass, ConceptReferenceMap, ConceptAnswer, ConceptSet,  ConceptReferenceSource
+from omrs.models import Concept, ConceptName, ConceptClass, ConceptAnswer, ConceptSet,  ConceptReferenceSource, ConceptDescription, ConceptNumeric, ConceptReferenceTerm, ConceptReferenceMap, ConceptMapType
 from omrs.management.commands import OclOpenmrsHelper, UnrecognizedSourceException
 import requests
 
@@ -262,6 +262,11 @@ class Command(BaseCommand):
         # Iterate the concept export counter
         self.cnt_concepts_exported += 1
 
+        cconcept = Concept.objects.get(concept_id=concept['id'])
+        if cconcept is None:
+            cconcept = Concept(concept_class=concept['concept_class'],datatype=concept['datatype'],uuid=concept['external_id'],retired=concept['retired'], class_id=concept_class['concept_class_id'])
+            cconcept.save()
+
         # Concept class, check if it is already created
         concept_class = ConceptClass.objects.filter(name=concept['concept_class'])
         if concept_class is None:
@@ -271,69 +276,58 @@ class Command(BaseCommand):
         # Concept Name, check if it is already there
         cnames = concept['names']
         for cname in cnames:
-            concept_name = ConceptName.objects.filter(name=cname['name'], uuid=cname['external_id'])
-            if concept_name is None:
-                concept_name = ConceptName(name=cname['name'], uuid=cname['external_id'], concept_name_type=cname['name_type'], locale=cname['locale'])
-                concept_name.save()
-
-        # Core concept fields
-        # TODO: Confirm that all core concept fields are populated
-
-        # Core concept fields
-        # TODO: Confirm that all core concept fields are populated
-        extras = {}
-        data = {}
-        data['id'] = concept.concept_id
-        data['concept_class'] = concept.concept_class.name
-        data['datatype'] = concept.datatype.name
-        data['external_id'] = concept.uuid
-        data['retired'] = concept.retired
-        if concept.is_set:
-            extras['is_set'] = concept.is_set
-
-        # Concept Names
-        names = []
-        for concept_name in concept.conceptname_set.all():
-            if not concept_name.voided:
-                names.append({
-                    'name': concept_name.name,
-                    'name_type': concept_name.concept_name_type,
-                    'locale': concept_name.locale,
-                    'locale_preferred': concept_name.locale_preferred,
-                    'external_id': concept_name.uuid,
-                })
-        data['names'] = names
+            concept_name = ConceptName.objects.filter(concept_id=cconcept.concept_id, name=cname['name'], locale=cname['locale'], locale_preferred=cname['locale_preferred'])
+            if concept_name:
+                cconceptname = concept_name[0]
+            else:
+                cconceptname = ConceptName(concept_id=cconcept.concept_id,name=cname['name'], uuid=cname['external_id'], concept_name_type=cname['name_type'], locale=cname['locale'], locale_preferred=cname['locale_preferred'])
+                cconceptname.save()
 
         # Concept Descriptions
-        # NOTE: OMRS does not have description_type or locale_preferred -- omitted for now
-        descriptions = []
-        for concept_description in concept.conceptdescription_set.all():
-            descriptions.append({
-                'description': concept_description.description,
-                'locale': concept_description.locale,
-                'external_id': concept_description.uuid
-            })
-        data['descriptions'] = descriptions
+        
+        for cdescription in concept['descriptions']:
+            concept_description = ConceptDescription.objects.filter(concept_id=cconcept.concept_id, description=cdescription['description'], uuid=cdescription['external_id'])
+            if concept_description is None:
+                concept_description = ConceptDescription(concept_id=cconcept.concept_id, description=cdescription['name'], uuid=cdescription['external_id'], locale=cdescription['locale'])
+                concept_description.save()
 
+        extra = None
+        if concept['datatype'] == "Numeric":
+            extra = concept['extras']
         # If the concept is of numeric type, map concept's numeric type data as extras
-        for numeric_metadata in concept.conceptnumeric_set.all():
-            extras_dict = {}
-            add_f(extras_dict, 'hi_absolute', numeric_metadata.hi_absolute)
-            add_f(extras_dict, 'hi_critical', numeric_metadata.hi_critical)
-            add_f(extras_dict, 'hi_normal', numeric_metadata.hi_normal)
-            add_f(extras_dict, 'low_absolute', numeric_metadata.low_absolute)
-            add_f(extras_dict, 'low_critical', numeric_metadata.low_critical)
-            add_f(extras_dict, 'low_normal', numeric_metadata.low_normal)
-            add_f(extras_dict, 'units', numeric_metadata.units)
-            add_f(extras_dict, 'precise', numeric_metadata.precise)
-            add_f(extras_dict, 'display_precision', numeric_metadata.display_precision)
-            extras.update(extras_dict)
+        if extra is not None:
+            numeric = ConceptNumeric(concept_id=cconcept.concept_id)
+            if numeric is None:
+                numeric = ConceptNumeric(concept_id=cconcept['concept_id'], hi_absolute = extra['hi_absolute'], hi_critical=extra['hi_critical'], hi_normal=extra['hi_normal'], low_absolute=extra['low_absolute'], low_normal=extra['low_normal'], units =extra['units'],precise=extra['precise'],display_precision=extra['display_precision'])
+                numeric.save()
 
-        # TODO: Set additional concept extras
-        data['extras'] = extras
+                
+        # for the Mappings
+        
+        for ref_map in mappings:
+            if 'to_concept_url' in ref_map:
+                map_dict = self.create_internal_mapping(map_type=ref_map['map_type'],
+                    from_concept=cconcept,
+                    from_concept_url=ref_map['from_concept_url'],
+                    to_concept_url=ref_map['to_concept_url'],
+                    external_id=ref_map['external_id'])
+            if 'to_source_url' in ref_map:
+                map_dict = self.create_external_mapping(map_type=ref_map['map_type'],
+                    from_concept=cconcept,
+                    to_source_url=ref_map['to_source_url'],
+                    to_concept_code=ref_map['to_concept_code'],
+                    to_concept_name=cconceptname.name,
+                    external_id=ref_map['external_id'])
 
-        return data
-
+            if ref_map['map_type'] == "SAME-AS":                
+                if ref_map['to_concept_code'] == str(cconcept.concept_id):
+                    mmap = ref_map
+                    break
+            else:
+                mmap = None
+        if mmap is not None:
+            return
+            
 
 
     ## MAPPING EXPORT
@@ -469,35 +463,47 @@ class Command(BaseCommand):
 
         return maps
 
-    def generate_internal_mapping(self, map_type=None, from_concept=None,
-                                  to_concept_code=None, external_id=None,
+    def create_internal_mapping(self, map_type=None, from_concept=None, from_concept_url=None,
+                                  to_concept_url=None, external_id=None,
                                   retired=False):
         """ Generate OCL-formatted dictionary for an internal mapping based on passed params. """
         map_dict = {}
         map_dict['map_type'] = map_type
-        map_dict['from_concept_url'] = '/orgs/%s/sources/%s/concepts/%s/' % (
-            self.org_id, self.source_id, from_concept.concept_id)
-        map_dict['to_concept_url'] = '/orgs/%s/sources/%s/concepts/%s/' % (
-            self.org_id, self.source_id, to_concept_code)
+        s = from_concept_url.split("/")
+        map_dict['from_concept_id'] = from_concept.concept_id
+        s = to_concept_url.split("/")
+        map_dict['to_concept_id'] = s[4]
         map_dict['retired'] = bool(retired)
         add_f(map_dict, 'external_id', external_id)
         return map_dict
 
-    def generate_external_mapping(self, map_type=None, from_concept=None,
-                                  to_org_id=None, to_source_id=None,
-                                  to_concept_code=None, to_concept_name=None,
+    def create_external_mapping(self, map_type, from_concept,
+                                  to_source_url,
+                                  to_concept_code, to_concept_name=None,
                                   external_id=None, retired=False):
         """ Generate OCL-formatted dictionary for an external mapping based on passed params. """
-        map_dict = {}
-        map_dict['map_type'] = map_type
-        map_dict['from_concept_url'] = '/orgs/%s/sources/%s/concepts/%s/' % (
-            self.org_id, self.source_id, from_concept.concept_id)
-        map_dict['to_source_url'] = '/orgs/%s/sources/%s/' % (to_org_id, to_source_id)
-        map_dict['to_concept_code'] = to_concept_code
-        map_dict['retired'] = bool(retired)
-        add_f(map_dict, 'to_concept_name', to_concept_name)
-        add_f(map_dict, 'external_id', external_id)
-        return map_dict
+        creference_terms = ConceptReferenceTerm.objects.filter(code=to_concept_code, concept_source_id=from_concept.concept_id)
+        if creference_terms is not None:
+            creference_term = creference_terms[0]
+        else:
+            creference_term = ConceptReferenceTerm(code=to_concept_code, concept_source_id=from_concept.concept_id)
+            creference_term.save()
+        
+        creference_map_types = ConceptMapType.objects.filter(name=map_type)
+        if creference_map_types is not None:
+            creference_map_types = creference_map_types[0]
+        else:
+            creference_map_type = ConceptMapType(name=map_type)
+            creference_map_type.save()
+
+        creference_maps = ConceptReferenceMap.objects.filter(concept_reference_term_id=creference_term.concept_reference_term_id, concept_id=from_concept.concept_id, concept_map_type_id=creference_map_type.concept_map_type_id)
+        if creference_maps is not None:
+            creference_map = creference_maps[0]
+        else:
+            creference_map = ConceptReferenceMap(concept_reference_term_id=creference_term.concept_reference_term_id, concept_id=from_concept.concept_id, concept_map_type_id=creference_map_type.concept_map_type_id)
+            creference_map.save()
+
+        return
 
 
 
