@@ -20,7 +20,7 @@ import json
 from django.core.management import BaseCommand, CommandError
 from omrs.models import Concept, ConceptName, ConceptClass, ConceptAnswer, ConceptSet,  ConceptReferenceSource, ConceptDescription, ConceptNumeric, ConceptReferenceTerm, ConceptReferenceMap, ConceptMapType
 from omrs.management.commands import OclOpenmrsHelper, UnrecognizedSourceException
-import requests
+import requests, datetime
 
 
 class Command(BaseCommand):
@@ -264,13 +264,13 @@ class Command(BaseCommand):
 
         cconcept = Concept.objects.get(concept_id=concept['id'])
         if cconcept is None:
-            cconcept = Concept(concept_class=concept['concept_class'],datatype=concept['datatype'],uuid=concept['external_id'],retired=concept['retired'], class_id=concept_class['concept_class_id'])
+            cconcept = Concept(concept_class=concept['concept_class'],datatype=concept['datatype'],uuid=concept['external_id'],retired=concept['retired'], class_id=concept_class['concept_class_id'], creator=1, voided=0, date_created=datetime.datetime.now())
             cconcept.save()
 
         # Concept class, check if it is already created
         concept_class = ConceptClass.objects.filter(name=concept['concept_class'])
         if concept_class is None:
-            concept_class = ConceptClass(name=concept['concept_class'])
+            concept_class = ConceptClass(name=concept['concept_class'], creator=1, voided=0, date_created=datetime.datetime.now())
             concept_class.save()
 
         # Concept Name, check if it is already there
@@ -280,7 +280,7 @@ class Command(BaseCommand):
             if concept_name:
                 cconceptname = concept_name[0]
             else:
-                cconceptname = ConceptName(concept_id=cconcept.concept_id,name=cname['name'], uuid=cname['external_id'], concept_name_type=cname['name_type'], locale=cname['locale'], locale_preferred=cname['locale_preferred'])
+                cconceptname = ConceptName(concept_id=cconcept.concept_id,name=cname['name'], uuid=cname['external_id'], concept_name_type=cname['name_type'], locale=cname['locale'], locale_preferred=cname['locale_preferred'], creator=1, voided=0, date_created=datetime.datetime.now())
                 cconceptname.save()
 
         # Concept Descriptions
@@ -288,7 +288,7 @@ class Command(BaseCommand):
         for cdescription in concept['descriptions']:
             concept_description = ConceptDescription.objects.filter(concept_id=cconcept.concept_id, description=cdescription['description'], uuid=cdescription['external_id'])
             if concept_description is None:
-                concept_description = ConceptDescription(concept_id=cconcept.concept_id, description=cdescription['name'], uuid=cdescription['external_id'], locale=cdescription['locale'])
+                concept_description = ConceptDescription(concept_id=cconcept.concept_id, description=cdescription['name'], uuid=cdescription['external_id'], locale=cdescription['locale'], creator=1, voided=0, date_created=datetime.datetime.now())
                 concept_description.save()
 
         extra = None
@@ -298,7 +298,7 @@ class Command(BaseCommand):
         if extra is not None:
             numeric = ConceptNumeric(concept_id=cconcept.concept_id)
             if numeric is None:
-                numeric = ConceptNumeric(concept_id=cconcept['concept_id'], hi_absolute = extra['hi_absolute'], hi_critical=extra['hi_critical'], hi_normal=extra['hi_normal'], low_absolute=extra['low_absolute'], low_normal=extra['low_normal'], units =extra['units'],precise=extra['precise'],display_precision=extra['display_precision'])
+                numeric = ConceptNumeric(concept_id=cconcept['concept_id'], hi_absolute = extra['hi_absolute'], hi_critical=extra['hi_critical'], hi_normal=extra['hi_normal'], low_absolute=extra['low_absolute'], low_normal=extra['low_normal'], units =extra['units'],precise=extra['precise'],display_precision=extra['display_precision'], creator=1, voided=0, date_created=datetime.datetime.now())
                 numeric.save()
 
                 
@@ -466,7 +466,7 @@ class Command(BaseCommand):
             if len(canswers) != 0:
                 canswer = canswers[0]
             else:
-                canswer = ConceptAnswer(question_concept_id=concept_id, answer_concept_id=answer_concept, uuid=external_id)
+                canswer = ConceptAnswer(question_concept_id=concept_id, answer_concept_id=answer_concept, uuid=external_id, creator=1, voided=0, date_created=datetime.datetime.now())
                 canswer.save()
         elif map_type == OclOpenmrsHelper.MAP_TYPE_CONCEPT_SET:
             s1 = from_concept_url.split("/")
@@ -477,7 +477,7 @@ class Command(BaseCommand):
             if len(csets) != 0:
                 cset = csets[0]
             else:
-                cset = ConceptSet(concept_id=concept_id,  concept_set_owner_id=concept_set_id, uuid=external_id)
+                cset = ConceptSet(concept_id=concept_id,  concept_set_owner_id=concept_set_id, uuid=external_id, creator=1, voided=0, date_created=datetime.datetime.now())
                 cset.save()
         else:
             cnt_ocl_mapref += 1
@@ -498,28 +498,28 @@ class Command(BaseCommand):
         if len(creference_sources) != 0:
             creference_source = creference_sources[0]
         else:
-            creference_source = ConceptReferenceSource(code=to_concept_code, name=source_name)
+            creference_source = ConceptReferenceSource(code=to_concept_code, name=source_name, creator=1, voided=0, date_created=datetime.datetime.now())
             creference_term.save()
 
         creference_terms = ConceptReferenceTerm.objects.filter(code=to_concept_code, concept_source_id=creference_source.concept_source_id)
         if len(creference_terms) != 0:
             creference_term = creference_terms[0]
         else:
-            creference_term = ConceptReferenceTerm(code=to_concept_code, concept_source_id=creference_source.concept_source_id)
+            creference_term = ConceptReferenceTerm(code=to_concept_code, concept_source_id=creference_source.concept_source_id, creator=1, voided=0, date_created=datetime.datetime.now())
             creference_term.save()
         
         creference_map_types = ConceptMapType.objects.filter(name=map_type)
         if len(creference_map_types) != 0:
             creference_map_type = creference_map_types[0]
         else:
-            creference_map_type = ConceptMapType(name=map_type)
+            creference_map_type = ConceptMapType(name=map_type, creator=1, voided=0, date_created=datetime.datetime.now())
             creference_map_type.save()
 
         creference_maps = ConceptReferenceMap.objects.filter(concept_reference_term_id=creference_term.concept_reference_term_id, uuid=external_id, map_type_id=creference_map_type.concept_map_type_id)
         if len(creference_maps) != 0:
             creference_map = creference_maps[0]
         else:
-            creference_map = ConceptReferenceMap(concept_reference_term_id=creference_term.concept_reference_term_id, uuid=external_id, map_type_id=creference_map_type.concept_map_type_id)
+            creference_map = ConceptReferenceMap(concept_reference_term_id=creference_term.concept_reference_term_id, uuid=external_id, map_type_id=creference_map_type.concept_map_type_id, creator=1, voided=0, date_created=datetime.datetime.now())
             creference_map.save()
 
         return
