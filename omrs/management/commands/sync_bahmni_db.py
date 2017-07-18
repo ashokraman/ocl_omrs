@@ -3,7 +3,7 @@ Command to using concept dictionary JSON files created from OpenMRS v1.11 concep
 
 Example usage:
 
-    manage.py sync_bahmni_db --org_id=CIEL --source_id=CIEL --concept_filename=CONCEPT_FILENAME --mapping_filename=MAPPING_FILENAME
+    manage.py sync_bahmni_db --org_id=CIEL --source_id=CIEL --concept_file=CONCEPT_FILENAME --mapping_file=MAPPING_FILENAME
 
 Set verbosity to 0 (e.g. '-v0') to suppress the results summary output. Set verbosity to 2
 to see all debug output.
@@ -127,15 +127,15 @@ class Command(BaseCommand):
 
         # Initialize counters
         self.cnt_total_concepts_processed = 0
-        self.cnt_concepts_exported = 0
-        self.cnt_internal_mappings_exported = 0
-        self.cnt_external_mappings_exported = 0
+        self.cnt_concepts_created = 0
+        self.cnt_internal_mappings_created = 0
+        self.cnt_external_mappings_created = 0
         self.cnt_ignored_self_mappings = 0
-        self.cnt_questions_exported = 0
-        self.cnt_answers_exported = 0
-        self.cnt_concept_sets_exported = 0
-        self.cnt_set_members_exported = 0
-        self.cnt_retired_concepts_exported = 0
+        self.cnt_questions_created = 0
+        self.cnt_answers_created = 0
+        self.cnt_retired_concepts_created = 0
+        self.cnt_set_members_created = 0
+        self.cnt_retired_concepts_created = 0
 
         # Process concepts, mappings, or retirement script
         self.sync_db(concepts, mappings)
@@ -166,21 +166,21 @@ class Command(BaseCommand):
         print '------------------------------------------------------'
         print 'Total concepts processed: %d' % self.cnt_total_concepts_processed
         if self.do_concept:
-            print 'EXPORT COUNT: Concepts: %d' % self.cnt_concepts_exported
+            print 'EXPORT COUNT: Concepts: %d' % self.cnt_concepts_created
         if self.do_mapping:
-            print 'EXPORT COUNT: All Mappings: %d' % (self.cnt_internal_mappings_exported +
-                                                      self.cnt_external_mappings_exported +
-                                                      self.cnt_answers_exported +
-                                                      self.cnt_set_members_exported)
-            print 'EXPORT COUNT: Internal Mappings: %d' % self.cnt_internal_mappings_exported
-            print 'EXPORT COUNT: External Mappings: %d' % self.cnt_external_mappings_exported
-            print 'EXPORT COUNT: Linked Answer Mappings: %d' % self.cnt_answers_exported
-            print 'EXPORT COUNT: Set Member Mappings: %d' % self.cnt_concepts_exported
-            print 'Questions Processed: %d' % self.cnt_questions_exported
-            print 'Concept Sets Processed: %d' % self.cnt_concept_sets_exported
+            print 'EXPORT COUNT: All Mappings: %d' % (self.cnt_internal_mappings_created +
+                                                      self.cnt_external_mappings_created +
+                                                      self.cnt_answers_created +
+                                                      self.cnt_set_members_created)
+            print 'EXPORT COUNT: Internal Mappings: %d' % self.cnt_internal_mappings_created
+            print 'EXPORT COUNT: External Mappings: %d' % self.cnt_external_mappings_created
+            print 'EXPORT COUNT: Linked Answer Mappings: %d' % self.cnt_answers_created
+            print 'EXPORT COUNT: Set Member Mappings: %d' % self.cnt_concepts_created
+            print 'Questions Processed: %d' % self.cnt_questions_created
+            print 'Concept Sets Processed: %d' % self.cnt_retired_concepts_created
             print 'Ignored Self Mappings: %d' % self.cnt_ignored_self_mappings
         if self.do_retire:
-            print 'EXPORT COUNT: Retired Concept IDs: %d' % self.cnt_retired_concepts_exported
+            print 'EXPORT COUNT: Retired Concept IDs: %d' % self.cnt_retired_concepts_created
         print '------------------------------------------------------'
 
 
@@ -237,18 +237,18 @@ class Command(BaseCommand):
             # Fetch all concepts
             concept_enumerator = enumerate(concepts)
 
-        # Iterate concept enumerator and process the export
+        # Iterate concept enumerator and process them
+
         for num, concept in concept_enumerator:
             self.cnt_total_concepts_processed += 1
             export_data = ''
-            self.sync_concept_mapping(concept, mappings)
+            self.sync_concept(concept)
 
-
-
+        self.sync_mapping(mappings)
 
     ## CONCEPT and MAPPINGS sync to DB
 
-    def sync_concept_mapping(self, concept, mappings):
+    def sync_concept(self, concept):
         """
         Create one concept and its mappings.
 
@@ -260,7 +260,7 @@ class Command(BaseCommand):
         """
 
         # Iterate the concept export counter
-        self.cnt_concepts_exported += 1
+        self.cnt_concepts_created += 1
 
         cconcept = Concept.objects.get(concept_id=concept['id'])
         if cconcept is None:
@@ -303,32 +303,22 @@ class Command(BaseCommand):
 
                 
         # for the Mappings
+    def sync_mapping(self, mappings):
         
         for ref_map in mappings:
             if 'to_concept_url' in ref_map:
-                map_dict = self.create_internal_mapping(map_type=ref_map['map_type'],
-                    from_concept=cconcept,
+                self.create_internal_mapping(map_type=ref_map['map_type'],
                     from_concept_url=ref_map['from_concept_url'],
                     to_concept_url=ref_map['to_concept_url'],
                     external_id=ref_map['external_id'])
             if 'to_source_url' in ref_map:
-                map_dict = self.create_external_mapping(map_type=ref_map['map_type'],
-                    from_concept=cconcept,
+                self.create_external_mapping(map_type=ref_map['map_type'],
                     to_source_url=ref_map['to_source_url'],
                     to_concept_code=ref_map['to_concept_code'],
-                    to_concept_name=cconceptname.name,
                     external_id=ref_map['external_id'])
 
-            if ref_map['map_type'] == "SAME-AS":                
-                if ref_map['to_concept_code'] == str(cconcept.concept_id):
-                    mmap = ref_map
-                    break
-            else:
-                mmap = None
-        if mmap is not None:
-            return
             
-
+        return
 
     ## MAPPING EXPORT
 
@@ -385,7 +375,7 @@ class Command(BaseCommand):
                     from_concept=concept,
                     to_concept_code=ref_map.concept_reference_term.code,
                     external_id=ref_map.concept_reference_term.uuid)
-                self.cnt_internal_mappings_exported += 1
+                self.cnt_internal_mappings_created += 1
 
             # External Mapping
             else:
@@ -404,7 +394,7 @@ class Command(BaseCommand):
                     to_concept_name=ref_map.concept_reference_term.name,
                     external_id=ref_map.uuid)
 
-                self.cnt_external_mappings_exported += 1
+                self.cnt_external_mappings_created += 1
 
             if map_dict:
                 export_data.append(map_dict)
@@ -422,7 +412,7 @@ class Command(BaseCommand):
             return []
 
         # Increment number of concept questions prepared for export
-        self.cnt_questions_exported += 1
+        self.cnt_questions_created += 1
 
         # Export each of this concept's linked answers as an internal mapping
         maps = []
@@ -433,7 +423,7 @@ class Command(BaseCommand):
                 to_concept_code=answer.answer_concept.concept_id,
                 external_id=answer.uuid)
             maps.append(map_dict)
-            self.cnt_answers_exported += 1
+            self.cnt_answers_created += 1
 
         return maps
 
@@ -448,7 +438,7 @@ class Command(BaseCommand):
             return []
 
         # Iterate number of concept sets prepared for export
-        self.cnt_concept_sets_exported += 1
+        self.cnt_retired_concepts_created += 1
 
         # Export each of this concept's set members as an internal mapping
         maps = []
@@ -459,48 +449,77 @@ class Command(BaseCommand):
                 to_concept_code=set_member.concept.concept_id,
                 external_id=set_member.uuid)
             maps.append(map_dict)
-            self.cnt_set_members_exported += 1
+            self.cnt_set_members_created += 1
 
         return maps
 
-    def create_internal_mapping(self, map_type=None, from_concept=None, from_concept_url=None,
-                                  to_concept_url=None, external_id=None,
+    def create_internal_mapping(self, map_type, from_concept_url,
+                                  to_concept_url, external_id,
                                   retired=False):
         """ Generate OCL-formatted dictionary for an internal mapping based on passed params. """
-        map_dict = {}
-        map_dict['map_type'] = map_type
-        s = from_concept_url.split("/")
-        map_dict['from_concept_id'] = from_concept.concept_id
-        s = to_concept_url.split("/")
-        map_dict['to_concept_id'] = s[4]
-        map_dict['retired'] = bool(retired)
-        add_f(map_dict, 'external_id', external_id)
-        return map_dict
+        if map_type == OclOpenmrsHelper.MAP_TYPE_Q_AND_A:
+            s1 = from_concept_url.split("/")
+            concept_id=s1[6]
+            s2 = to_concept_url.split("/")
+            answer_concept=s2[6]
+            canswers = ConceptAnswer.objects.filter(question_concept_id=concept_id, answer_concept_id=answer_concept, uuid=external_id)
+            if len(canswers) != 0:
+                canswer = canswers[0]
+            else:
+                canswer = ConceptAnswer(question_concept_id=concept_id, answer_concept_id=answer_concept, uuid=external_id)
+                canswer.save()
+        elif map_type == OclOpenmrsHelper.MAP_TYPE_CONCEPT_SET:
+            s1 = from_concept_url.split("/")
+            concept_set_id=s1[6]
+            s2 = to_concept_url.split("/")
+            concept_id=s2[6]
+            csets = ConceptSet.objects.filter(concept_id=concept_id,  concept_set_owner_id=concept_set_id, uuid=external_id)
+            if len(csets) != 0:
+                cset = csets[0]
+            else:
+                cset = ConceptSet(concept_id=concept_id,  concept_set_owner_id=concept_set_id, uuid=external_id)
+                cset.save()
+        else:
+            cnt_ocl_mapref += 1
+        
+        return
 
-    def create_external_mapping(self, map_type, from_concept,
+    def create_external_mapping(self, map_type,
                                   to_source_url,
-                                  to_concept_code, to_concept_name=None,
-                                  external_id=None, retired=False):
+                                  to_concept_code,
+                                  external_id, retired=False):
         """ Generate OCL-formatted dictionary for an external mapping based on passed params. """
-        creference_terms = ConceptReferenceTerm.objects.filter(code=to_concept_code, concept_source_id=from_concept.concept_id)
-        if creference_terms is not None:
+        ss = to_source_url.split("/")
+        source_name = ss[4]
+        source_id = OclOpenmrsHelper.get_omrs_source_id_from_ocl_id(source_name)
+        if self.verbosity >= 1:
+            print 'Checking source "%s" at uuid "%s"' % (source_id, external_id)
+        creference_sources = ConceptReferenceSource.objects.filter(name=source_id)
+        if len(creference_sources) != 0:
+            creference_source = creference_sources[0]
+        else:
+            creference_source = ConceptReferenceSource(code=to_concept_code, name=source_name)
+            creference_term.save()
+
+        creference_terms = ConceptReferenceTerm.objects.filter(code=to_concept_code, concept_source_id=creference_source.concept_source_id)
+        if len(creference_terms) != 0:
             creference_term = creference_terms[0]
         else:
-            creference_term = ConceptReferenceTerm(code=to_concept_code, concept_source_id=from_concept.concept_id)
+            creference_term = ConceptReferenceTerm(code=to_concept_code, concept_source_id=creference_source.concept_source_id)
             creference_term.save()
         
         creference_map_types = ConceptMapType.objects.filter(name=map_type)
-        if creference_map_types is not None:
-            creference_map_types = creference_map_types[0]
+        if len(creference_map_types) != 0:
+            creference_map_type = creference_map_types[0]
         else:
             creference_map_type = ConceptMapType(name=map_type)
             creference_map_type.save()
 
-        creference_maps = ConceptReferenceMap.objects.filter(concept_reference_term_id=creference_term.concept_reference_term_id, concept_id=from_concept.concept_id, concept_map_type_id=creference_map_type.concept_map_type_id)
-        if creference_maps is not None:
+        creference_maps = ConceptReferenceMap.objects.filter(concept_reference_term_id=creference_term.concept_reference_term_id, uuid=external_id, map_type_id=creference_map_type.concept_map_type_id)
+        if len(creference_maps) != 0:
             creference_map = creference_maps[0]
         else:
-            creference_map = ConceptReferenceMap(concept_reference_term_id=creference_term.concept_reference_term_id, concept_id=from_concept.concept_id, concept_map_type_id=creference_map_type.concept_map_type_id)
+            creference_map = ConceptReferenceMap(concept_reference_term_id=creference_term.concept_reference_term_id, uuid=external_id, map_type_id=creference_map_type.concept_map_type_id)
             creference_map.save()
 
         return
@@ -512,7 +531,7 @@ class Command(BaseCommand):
     def export_concept_id_if_retired(self, concept):
         """ Returns the concept's ID if it is retired, None otherwise. """
         if concept.retired:
-            self.cnt_retired_concepts_exported += 1
+            self.cnt_retired_concepts_created += 1
             return concept.concept_id
         return None
 
