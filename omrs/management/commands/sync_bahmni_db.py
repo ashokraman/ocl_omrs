@@ -16,9 +16,9 @@ BUGS:
 """
 
 from optparse import make_option
-import json
+import json, uuid
 from django.core.management import BaseCommand, CommandError
-from omrs.models import Concept, ConceptName, ConceptClass, ConceptAnswer, ConceptSet,  ConceptReferenceSource, ConceptDescription, ConceptNumeric, ConceptReferenceTerm, ConceptReferenceMap, ConceptMapType
+from omrs.models import Concept, ConceptName, ConceptClass, ConceptAnswer, ConceptSet,  ConceptReferenceSource, ConceptDescription, ConceptNumeric, ConceptReferenceTerm, ConceptReferenceMap, ConceptMapType, ConceptDatatype
 from omrs.management.commands import OclOpenmrsHelper, UnrecognizedSourceException
 import requests, datetime
 
@@ -165,22 +165,6 @@ class Command(BaseCommand):
         print 'SUMMARY'
         print '------------------------------------------------------'
         print 'Total concepts processed: %d' % self.cnt_total_concepts_processed
-        if self.do_concept:
-            print 'EXPORT COUNT: Concepts: %d' % self.cnt_concepts_created
-        if self.do_mapping:
-            print 'EXPORT COUNT: All Mappings: %d' % (self.cnt_internal_mappings_created +
-                                                      self.cnt_external_mappings_created +
-                                                      self.cnt_answers_created +
-                                                      self.cnt_set_members_created)
-            print 'EXPORT COUNT: Internal Mappings: %d' % self.cnt_internal_mappings_created
-            print 'EXPORT COUNT: External Mappings: %d' % self.cnt_external_mappings_created
-            print 'EXPORT COUNT: Linked Answer Mappings: %d' % self.cnt_answers_created
-            print 'EXPORT COUNT: Set Member Mappings: %d' % self.cnt_concepts_created
-            print 'Questions Processed: %d' % self.cnt_questions_created
-            print 'Concept Sets Processed: %d' % self.cnt_retired_concepts_created
-            print 'Ignored Self Mappings: %d' % self.cnt_ignored_self_mappings
-        if self.do_retire:
-            print 'EXPORT COUNT: Retired Concept IDs: %d' % self.cnt_retired_concepts_created
         print '------------------------------------------------------'
 
 
@@ -262,25 +246,45 @@ class Command(BaseCommand):
         # Iterate the concept export counter
         self.cnt_concepts_created += 1
 
-        cconcept = Concept.objects.get(concept_id=concept['id'])
-        if cconcept is None:
-            cconcept = Concept(concept_class=concept['concept_class'],datatype=concept['datatype'],uuid=concept['external_id'],retired=concept['retired'], class_id=concept_class['concept_class_id'], creator=1, voided=0, date_created=datetime.datetime.now())
-            cconcept.save()
-
         # Concept class, check if it is already created
-        concept_class = ConceptClass.objects.filter(name=concept['concept_class'])
-        if concept_class is None:
-            concept_class = ConceptClass(name=concept['concept_class'], creator=1, voided=0, date_created=datetime.datetime.now())
+        concept_classes = ConceptClass.objects.filter(name=concept['concept_class'])
+        concept_class = None
+        if len(concept_classes) !=0:
+            concept_class = concept_classes[0]
+        else:
+            uuidcc = uuid.uuid1()
+            concept_class = ConceptClass(name=concept['concept_class'], retired=concept['retired'], creator=1, date_created=datetime.datetime.now(), uuid=uuidcc)
             concept_class.save()
+
+        datatypes = ConceptDatatype.objects.filter(name=concept['datatype'])
+        datatype = None
+        if len(datatypes) !=0:
+            datatype = datatypes[0]
+        else:
+            datatype = ConceptDatatype(name=concept['datatype'], creator=1, voided=0, date_created=datetime.datetime.now())
+            datatype.save()
 
         # Concept Name, check if it is already there
         cnames = concept['names']
+        cconcept = None
+        concept['is_set'] = 0
+        if 'is_set' in concept['extras']:
+            concept['is_set'] = concept['extras']['is_set']
+        cconcept = None
         for cname in cnames:
-            concept_name = ConceptName.objects.filter(concept_id=cconcept.concept_id, name=cname['name'], locale=cname['locale'], locale_preferred=cname['locale_preferred'])
-            if concept_name:
-                cconceptname = concept_name[0]
+            concept_names = ConceptName.objects.filter(name=cname['name'], locale=cname['locale'], locale_preferred=cname['locale_preferred'])
+            if len(concept_names) != 0:
+                cconceptname = concept_names[0]
+                cconcept = Concept.objects.get(concept_id=cconceptname.concept_id)
+                if cconcept is None:
+                    print "Should not be here!!"
+#                   cconcept = Concept(concept_id=cconceptname.concept_id, concept_class=concept_class,datatype=datatype,is_set=concept['is_set'],uuid=concept['external_id'],retired=concept['retired'], class_id=concept_class['concept_class_id'], creator=1, date_created=datetime.datetime.now())
+#                   cconcept.save()
             else:
-                cconceptname = ConceptName(concept_id=cconcept.concept_id,name=cname['name'], uuid=cname['external_id'], concept_name_type=cname['name_type'], locale=cname['locale'], locale_preferred=cname['locale_preferred'], creator=1, voided=0, date_created=datetime.datetime.now())
+                if cconcept is None:
+                    cconcept = Concept(concept_class=concept_class,datatype=datatype,is_set=concept['is_set'],uuid=concept['external_id'],retired=concept['retired'],creator=1,date_created=datetime.datetime.now())
+                    cconcept.save()
+                cconceptname = ConceptName(concept=cconcept, name=cname['name'], uuid=cname['external_id'], concept_name_type=cname['name_type'], locale=cname['locale'], locale_preferred=cname['locale_preferred'], creator=1, voided=0, date_created=datetime.datetime.now())
                 cconceptname.save()
 
         # Concept Descriptions
