@@ -13,7 +13,7 @@ from django.db import models
 
 
 class Concept(models.Model):
-    concept_id = models.IntegerField(primary_key=True)
+    concept_id = models.AutoField(primary_key=True)
     retired = models.BooleanField()
     short_name = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
@@ -43,7 +43,7 @@ class Concept(models.Model):
 
 
 class ConceptAnswer(models.Model):
-    concept_answer_id = models.IntegerField(primary_key=True)
+    concept_answer_id = models.AutoField(primary_key=True)
 
     # answers for this concept
 #    concept_id = models.IntegerField()
@@ -66,7 +66,7 @@ class ConceptAnswer(models.Model):
         db_table = 'concept_answer'
 
 class ConceptClass(models.Model):
-    concept_class_id = models.IntegerField(primary_key=True)
+    concept_class_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
     description = models.CharField(max_length=255)
     creator = models.IntegerField()
@@ -97,7 +97,7 @@ class ConceptComplex(models.Model):
         db_table = 'concept_complex'
 
 class ConceptDatatype(models.Model):
-    concept_datatype_id = models.IntegerField(primary_key=True)
+    concept_datatype_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
     hl7_abbreviation = models.CharField(max_length=3, blank=True)
     description = models.CharField(max_length=255)
@@ -114,7 +114,7 @@ class ConceptDatatype(models.Model):
 
 
 class ConceptDescription(models.Model):
-    concept_description_id = models.IntegerField(primary_key=True)
+    concept_description_id = models.AutoField(primary_key=True)
 #    concept_id = models.IntegerField()
     concept = models.ForeignKey('Concept')
     description = models.TextField()
@@ -134,7 +134,7 @@ class ConceptDescription(models.Model):
 
 
 class ConceptMapType(models.Model):
-    concept_map_type_id = models.IntegerField(primary_key=True)
+    concept_map_type_id = models.AutoField(primary_key=True)
     name = models.CharField(unique=True, max_length=255)
     description = models.CharField(max_length=255, blank=True)
     creator = models.IntegerField()
@@ -219,7 +219,7 @@ class ConceptNumeric(models.Model):
         db_table = 'concept_numeric'
 
 class ConceptProposal(models.Model):
-    concept_proposal_id = models.IntegerField(primary_key=True)
+    concept_proposal_id = models.AutoField(primary_key=True)
     concept_id = models.IntegerField(blank=True, null=True)
     encounter_id = models.IntegerField(blank=True, null=True)
     original_text = models.CharField(max_length=255)
@@ -249,7 +249,7 @@ class ConceptProposalTagMap(models.Model):
 
 
 class ConceptReferenceMap(models.Model):
-    concept_map_id = models.IntegerField(primary_key=True)
+    concept_map_id = models.AutoField(primary_key=True)
     creator = models.IntegerField()
     date_created = models.DateTimeField()
 #    concept_id = models.IntegerField()
@@ -270,7 +270,7 @@ class ConceptReferenceMap(models.Model):
 
 
 class ConceptReferenceSource(models.Model):
-    concept_source_id = models.IntegerField(primary_key=True)
+    concept_source_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50)
     description = models.TextField()
     hl7_code = models.CharField(unique=True, max_length=50, blank=True)
@@ -291,7 +291,7 @@ class ConceptReferenceSource(models.Model):
 
 
 class ConceptReferenceTerm(models.Model):
-    concept_reference_term_id = models.IntegerField(primary_key=True)
+    concept_reference_term_id = models.AutoField(primary_key=True)
 #    concept_source_id = models.IntegerField()
     concept_source = models.ForeignKey('ConceptReferenceSource')
     name = models.CharField(max_length=255, blank=True)
@@ -318,7 +318,7 @@ class ConceptReferenceTerm(models.Model):
 
 
 class ConceptReferenceTermMap(models.Model):
-    concept_reference_term_map_id = models.IntegerField(primary_key=True)
+    concept_reference_term_map_id = models.AutoField(primary_key=True)
     term_a_id = models.IntegerField()
     term_b_id = models.IntegerField()
     a_is_to_b_id = models.IntegerField()
@@ -333,7 +333,7 @@ class ConceptReferenceTermMap(models.Model):
 
 
 class ConceptSet(models.Model):
-    concept_set_id = models.IntegerField(primary_key=True)
+    concept_set_id = models.AutoField(primary_key=True)
 #    concept_id = models.IntegerField()
 #    concept_set = models.IntegerField()
     concept = models.ForeignKey('Concept', db_column='concept_id', related_name='concept_set_parent')
@@ -356,7 +356,7 @@ class ConceptSetDerived(models.Model):
         db_table = 'concept_set_derived'
 
 class ConceptStateConversion(models.Model):
-    concept_state_conversion_id = models.IntegerField(primary_key=True)
+    concept_state_conversion_id = models.AutoField(primary_key=True)
     concept_id = models.IntegerField(blank=True, null=True)
     program_workflow_id = models.IntegerField(blank=True, null=True)
     program_workflow_state_id = models.IntegerField(blank=True, null=True)
@@ -366,7 +366,7 @@ class ConceptStateConversion(models.Model):
         db_table = 'concept_state_conversion'
 
 class ConceptStopWord(models.Model):
-    concept_stop_word_id = models.IntegerField(primary_key=True)
+    concept_stop_word_id = models.AutoField(primary_key=True)
     word = models.CharField(max_length=50)
     locale = models.CharField(max_length=20)
     uuid = models.CharField(unique=True, max_length=38)
