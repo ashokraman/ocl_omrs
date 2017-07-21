@@ -16,7 +16,7 @@ class OclOpenmrsHelper(object):
 
     # Directory of sources with metadata
     SOURCE_DIRECTORY = [
-        {'owner_type':'org', 'owner_id':'IHTSDO', 'omrs_id':'SNOMED CT', 'ocl_id':'SNOMED-CT'},
+        {'owner_type':'org', 'owner_id':'IHTSDO', 'omrs_id':'SNOMED', 'ocl_id':'SNOMED-CT'},
         {'owner_type':'org', 'owner_id':'IHTSDO', 'omrs_id':'SNOMED NP', 'ocl_id':'SNOMED-NP'},
         {'owner_type':'org', 'owner_id':'WHO', 'omrs_id':'ICD-10-WHO', 'ocl_id':'ICD-10-WHO'},
         {'owner_type':'org', 'owner_id':'NLM', 'omrs_id':'RxNORM', 'ocl_id':'RxNORM'},
@@ -81,3 +81,17 @@ class OclOpenmrsHelper(object):
             if src['ocl_id'] == ocl_source_id:
                 return src['omrs_id']
         raise UnrecognizedSourceException('Source %s not found in source directory.' % ocl_source_id)
+
+class ConceptHelper(object):
+    """ Helper class for Concept id mapping """
+
+    @classmethod
+    def get_new_id(cls, concepts, old_concept_id):
+        """ Returns the new ID for the specified source """
+        if not concepts and not ocl_concept_id:
+            raise Exception('Must pass only concepts list and old concept_id.')
+
+        for item in concepts:
+            if item['id'] == old_concept_id:
+                return item['new_id']
+        raise UnrecognizedSourceException('Source %s not found in source directory.' % source_id)
