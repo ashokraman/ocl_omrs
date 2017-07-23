@@ -295,9 +295,9 @@ class Command(BaseCommand):
         # Concept Descriptions
         
         for cdescription in concept['descriptions']:
-            concept_description = ConceptDescription.objects.filter(concept_id=cconcept.concept_id, description=cdescription['description'], uuid=cdescription['external_id'])
-            if concept_description is None:
-                concept_description = ConceptDescription(concept_id=cconcept.concept_id, description=cdescription['name'], uuid=cdescription['external_id'], locale=cdescription['locale'], creator=1, date_created=datetime.datetime.now())
+            concept_description = ConceptDescription.objects.filter(concept_id=cconcept.concept_id, description=cdescription['description'])
+            if len(concept_description) == 0:
+                concept_description = ConceptDescription(concept_id=cconcept.concept_id, description=cdescription['description'], uuid=cdescription['external_id'], locale=cdescription['locale'], creator=1, date_created=datetime.datetime.now())
                 concept_description.save()
 
         extra = None
