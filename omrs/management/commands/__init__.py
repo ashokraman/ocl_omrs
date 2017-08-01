@@ -80,7 +80,8 @@ class OclOpenmrsHelper(object):
         for src in cls.SOURCE_DIRECTORY:
             if src['ocl_id'] == ocl_source_id:
                 return src['omrs_id']
-        raise UnrecognizedSourceException('Source %s not found in source directory.' % ocl_source_id)
+#        raise UnrecognizedSourceException('Source %s not found in source directory.' % ocl_source_id)
+        return None
 
 class ConceptHelper(object):
     """ Helper class for Concept id mapping """
@@ -94,4 +95,4 @@ class ConceptHelper(object):
         for item in concepts:
             if item['id'] == old_concept_id:
                 return item['new_id']
-        raise UnrecognizedSourceException('Source %s not found in source directory.' % source_id)
+        return None
