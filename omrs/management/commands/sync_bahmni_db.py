@@ -21,6 +21,7 @@ from django.core.management import BaseCommand, CommandError
 from omrs.models import Concept, ConceptName, ConceptClass, ConceptAnswer, ConceptSet,  ConceptReferenceSource, ConceptDescription, ConceptNumeric, ConceptReferenceTerm, ConceptReferenceMap, ConceptMapType, ConceptDatatype
 from omrs.management.commands import OclOpenmrsHelper, ConceptHelper, UnrecognizedSourceException
 import requests, datetime
+from django.utils import timezone
 
 
 class Command(BaseCommand):
@@ -253,7 +254,7 @@ class Command(BaseCommand):
             concept_class = concept_classes[0]
         else:
             uuidcc = uuid.uuid1()
-            concept_class = ConceptClass(name=concept['concept_class'], retired=concept['retired'], creator=1, date_created=datetime.datetime.now(), uuid=uuidcc)
+            concept_class = ConceptClass(name=concept['concept_class'], retired=concept['retired'], creator=1, date_created=timezone.now(), uuid=uuidcc)
             concept_class.save()
 
         datatypes = ConceptDatatype.objects.filter(name=concept['datatype'])
@@ -261,7 +262,7 @@ class Command(BaseCommand):
         if len(datatypes) !=0:
             datatype = datatypes[0]
         else:
-            datatype = ConceptDatatype(name=concept['datatype'], creator=1, date_created=datetime.datetime.now())
+            datatype = ConceptDatatype(name=concept['datatype'], creator=1, date_created=timezone.now())
             datatype.save()
 
         # Concept Name, check if it is already there
@@ -278,16 +279,16 @@ class Command(BaseCommand):
                 cconcept = Concept.objects.get(concept_id=cconceptname.concept_id)
                 if cconcept is None:
                     print "Should not be here!!"
-#                   cconcept = Concept(concept_id=cconceptname.concept_id, concept_class=concept_class,datatype=datatype,is_set=concept['is_set'],uuid=concept['external_id'],retired=concept['retired'], class_id=concept_class['concept_class_id'], creator=1, date_created=datetime.datetime.now())
+#                   cconcept = Concept(concept_id=cconceptname.concept_id, concept_class=concept_class,datatype=datatype,is_set=concept['is_set'],uuid=concept['external_id'],retired=concept['retired'], class_id=concept_class['concept_class_id'], creator=1, date_created=timezone.now())
 #                   cconcept.save()
             else:
                 if cconcept is None:
                     desc = None
                     if 'description' in concept:
                         desc = concept['description']
-                    cconcept = Concept(concept_class=concept_class,datatype=datatype,is_set=concept['is_set'],uuid=concept['external_id'],retired=concept['retired'],creator=1,date_created=datetime.datetime.now(), description=desc)
+                    cconcept = Concept(concept_class=concept_class,datatype=datatype,is_set=concept['is_set'],uuid=concept['external_id'],retired=concept['retired'],creator=1,date_created=timezone.now(), description=desc)
                     cconcept.save()
-                cconceptname = ConceptName(concept=cconcept, name=cname['name'], uuid=cname['external_id'], concept_name_type=cname['name_type'], locale=cname['locale'], locale_preferred=cname['locale_preferred'], creator=1, voided=0, date_created=datetime.datetime.now())
+                cconceptname = ConceptName(concept=cconcept, name=cname['name'], uuid=cname['external_id'], concept_name_type=cname['name_type'], locale=cname['locale'], locale_preferred=cname['locale_preferred'], creator=1, voided=0, date_created=timezone.now())
                 cconceptname.save()
                 # save the new id
         concept['new_id'] = cconcept.concept_id
@@ -297,7 +298,7 @@ class Command(BaseCommand):
         for cdescription in concept['descriptions']:
             concept_description = ConceptDescription.objects.filter(concept_id=cconcept.concept_id, description=cdescription['description'])
             if len(concept_description) == 0:
-                concept_description = ConceptDescription(concept_id=cconcept.concept_id, description=cdescription['description'], uuid=cdescription['external_id'], locale=cdescription['locale'], creator=1, date_created=datetime.datetime.now())
+                concept_description = ConceptDescription(concept_id=cconcept.concept_id, description=cdescription['description'], uuid=cdescription['external_id'], locale=cdescription['locale'], creator=1, date_created=timezone.now())
                 concept_description.save()
 
         extra = None
@@ -307,7 +308,7 @@ class Command(BaseCommand):
         if extra is not None:
             numeric = ConceptNumeric(concept_id=cconcept.concept_id)
             if numeric is None:
-                numeric = ConceptNumeric(concept_id=cconcept['concept_id'], hi_absolute = extra['hi_absolute'], hi_critical=extra['hi_critical'], hi_normal=extra['hi_normal'], low_absolute=extra['low_absolute'], low_normal=extra['low_normal'], units =extra['units'],precise=extra['precise'],display_precision=extra['display_precision'], creator=1, date_created=datetime.datetime.now())
+                numeric = ConceptNumeric(concept_id=cconcept['concept_id'], hi_absolute = extra['hi_absolute'], hi_critical=extra['hi_critical'], hi_normal=extra['hi_normal'], low_absolute=extra['low_absolute'], low_normal=extra['low_normal'], units =extra['units'],precise=extra['precise'],display_precision=extra['display_precision'], creator=1, date_created=timezone.now())
                 numeric.save()
 
                 
@@ -484,7 +485,7 @@ class Command(BaseCommand):
             if len(canswers) != 0:
                 canswer = canswers[0]
             else:
-                canswer = ConceptAnswer(question_concept_id=new_concept_id, answer_concept_id=new_answer_concept, uuid=external_id, creator=1, date_created=datetime.datetime.now())
+                canswer = ConceptAnswer(question_concept_id=new_concept_id, answer_concept_id=new_answer_concept, uuid=external_id, creator=1, date_created=timezone.now())
                 canswer.save()
         elif map_type == OclOpenmrsHelper.MAP_TYPE_CONCEPT_SET:
             s1 = from_concept_url.split("/")
@@ -500,12 +501,12 @@ class Command(BaseCommand):
             if len(csets) != 0:
                 cset = csets[0]
             else:
-                cset = ConceptSet(concept_id=new_concept_id,  concept_set_owner_id=new_concept_set_id, uuid=external_id, creator=1, date_created=datetime.datetime.now())
+                cset = ConceptSet(concept_id=new_concept_id,  concept_set_owner_id=new_concept_set_id, uuid=external_id, creator=1, date_created=timezone.now())
                 cset.save()
             ciel_id = concept_set_id
             iad_id = new_concept_set_id
         else:
-            cnt_ocl_mapref += 1
+            print 'Unexpected map type "%s"' % (map_type)
 
         self.create_ciel_mapping(to_source, ciel_id, "SAME-AS", iad_id, external_id)
   
@@ -519,40 +520,46 @@ class Command(BaseCommand):
         ss = to_source_url.split("/")
         source_name = ss[4]
         source_id = OclOpenmrsHelper.get_omrs_source_id_from_ocl_id(source_name)
-        cc = from_concept_url.split("/")
-        concept_id = cc[6]
-        new_concept_id = ConceptHelper.get_new_id(concepts, int(concept_id))
-        if self.verbosity >= 1:
-            print 'Checking source "%s" at uuid "%s"' % (source_id, external_id)
-        creference_sources = ConceptReferenceSource.objects.filter(name=source_id)
-        if len(creference_sources) != 0:
-            creference_source = creference_sources[0]
+        if source_id is None:
+                print 'Missing source "%s"' % source_name
         else:
-            creference_source = ConceptReferenceSource(name=source_id, hl7_code=None, creator=1, retired=False,uuid=uuid.uuid1(), date_created=datetime.datetime.now())
-            creference_source.save()
+            cc = from_concept_url.split("/")
+            concept_id = cc[6]
+            if self.verbosity >= 1:
+                print 'Checking source "%s" at uuid "%s"' % (source_id, external_id)
+            creference_sources = ConceptReferenceSource.objects.filter(name=source_id)
+            if len(creference_sources) != 0:
+                creference_source = creference_sources[0]
+            else:
+                creference_source = ConceptReferenceSource(name=source_id, hl7_code=None, creator=1, retired=False,uuid=uuid.uuid1(), date_created=timezone.now())
+                creference_source.save()
+            
+            creference_map_types = ConceptMapType.objects.filter(name=map_type)
+            if len(creference_map_types) != 0:
+                creference_map_type = creference_map_types[0]
+            else:
+                creference_map_type = ConceptMapType(name=map_type, creator=1, uuid=uuid.uuid1(), date_created=timezone.now())
+                creference_map_type.save()
 
-        creference_terms = ConceptReferenceTerm.objects.filter(code=to_concept_code, concept_source=creference_source)
-        if len(creference_terms) != 0:
-            creference_term = creference_terms[0]
-        else:
-            creference_term = ConceptReferenceTerm(code=to_concept_code, concept_source=creference_source, creator=1, retired=False, uuid=uuid.uuid1(), date_created=datetime.datetime.now())
-            creference_term.save()
-        
-        creference_map_types = ConceptMapType.objects.filter(name=map_type)
-        if len(creference_map_types) != 0:
-            creference_map_type = creference_map_types[0]
-        else:
-            creference_map_type = ConceptMapType(name=map_type, creator=1, uuid=uuid.uuid1(), date_created=datetime.datetime.now())
-            creference_map_type.save()
+            creference_terms = ConceptReferenceTerm.objects.filter(code=to_concept_code, concept_source=creference_source)
+            if len(creference_terms) != 0:
+#                creference_term = creference_terms[0]
+#       Nothing to be done, the mapping must also exist, just return                
+                return
+            else:
+                creference_term = ConceptReferenceTerm(code=to_concept_code, concept_source=creference_source, creator=1, retired=False, uuid=uuid.uuid1(), date_created=timezone.now())
+                creference_term.save()
 
-        creference_maps = ConceptReferenceMap.objects.filter(concept_id=new_concept_id, concept_reference_term=creference_term, map_type_id=creference_map_type.concept_map_type_id)
-        if len(creference_maps) != 0:
-            creference_map = creference_maps[0]
-        else:
-            creference_map = ConceptReferenceMap(concept_reference_term_id=creference_term.concept_reference_term_id, concept_id=new_concept_id, uuid=external_id, map_type_id=creference_map_type.concept_map_type_id, creator=1, date_created=datetime.datetime.now())
-            creference_map.save()
+            new_concept_id = ConceptHelper.get_new_id(concepts, int(concept_id))
+            if new_concept_id != None:
+                creference_maps = ConceptReferenceMap.objects.filter(concept_id=new_concept_id, concept_reference_term=creference_term, map_type_id=creference_map_type.concept_map_type_id)
+                if len(creference_maps) != 0:
+                    creference_map = creference_maps[0]
+                else:
+                    creference_map = ConceptReferenceMap(concept_reference_term_id=creference_term.concept_reference_term_id, concept_id=new_concept_id, uuid=external_id, map_type_id=creference_map_type.concept_map_type_id, creator=1, date_created=timezone.now())
+                    creference_map.save()
 
-        self.create_ciel_mapping(cc[4], int(concept_id), map_type, new_concept_id, uuid.uuid1())
+                self.create_ciel_mapping(cc[4], int(concept_id), map_type, new_concept_id, uuid.uuid1())
 
         return
 
@@ -565,28 +572,28 @@ class Command(BaseCommand):
         if len(creference_sources) != 0:
             creference_source = creference_sources[0]
         else:
-            creference_source = ConceptReferenceSource(name=source_id, hl7_code=None, creator=1, retired=False,uuid=uuid.uuid1(), date_created=datetime.datetime.now())
+            creference_source = ConceptReferenceSource(name=source_id, hl7_code=None, creator=1, retired=False,uuid=uuid.uuid1(), date_created=timezone.now())
             creference_source.save()
 
         creference_terms = ConceptReferenceTerm.objects.filter(code=ciel_id, concept_source=creference_source)
         if len(creference_terms) != 0:
             creference_term = creference_terms[0]
         else:
-            creference_term = ConceptReferenceTerm(code=ciel_id, concept_source=creference_source, creator=1, retired=False, uuid=uuid.uuid1(), date_created=datetime.datetime.now())
+            creference_term = ConceptReferenceTerm(code=ciel_id, concept_source=creference_source, creator=1, retired=False, uuid=uuid.uuid1(), date_created=timezone.now())
             creference_term.save()
         
         creference_map_types = ConceptMapType.objects.filter(name=map_type)
         if len(creference_map_types) != 0:
             creference_map_type = creference_map_types[0]
         else:
-            creference_map_type = ConceptMapType(name=map_type, creator=1, uuid=uuid.uuid1(), date_created=datetime.datetime.now())
+            creference_map_type = ConceptMapType(name=map_type, creator=1, uuid=uuid.uuid1(), date_created=timezone.now())
             creference_map_type.save()
 
         creference_maps = ConceptReferenceMap.objects.filter(concept_id=iad_id, concept_reference_term=creference_term, map_type=creference_map_type)
         if len(creference_maps) != 0:
             creference_map = creference_maps[0]
         else:
-            creference_map = ConceptReferenceMap(concept_reference_term=creference_term, concept_id=iad_id, uuid=external_id, map_type_id=creference_map_type.concept_map_type_id, creator=1, date_created=datetime.datetime.now())
+            creference_map = ConceptReferenceMap(concept_reference_term=creference_term, concept_id=iad_id, uuid=external_id, map_type_id=creference_map_type.concept_map_type_id, creator=1, date_created=timezone.now())
             creference_map.save()
         return
         
